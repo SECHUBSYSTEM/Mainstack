@@ -1,65 +1,124 @@
-import Image from "next/image";
+"use client";
+
+import { useState } from "react";
+import { format } from "date-fns";
+import { WalletCard } from "@/components/WalletCard";
+import { SideStats } from "@/components/SideStats";
+import { RevenueChart } from "@/components/RevenueChart";
+import { TransactionsList } from "@/components/TransactionsList";
+import { FilterModal } from "@/components/FilterModal";
+
+import { useWallet } from "@/hooks/useWallet";
+import { useTransactions } from "@/hooks/useTransactions";
+import { Transaction, FilterState } from "@/types";
 
 export default function Home() {
+  const { wallet } = useWallet();
+  const { transactions, isLoading: isTransactionsLoading } = useTransactions();
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [filters, setFilters] = useState<FilterState>({
+    dateRange: "All Time",
+    transactionType: [],
+    transactionStatus: [],
+  });
+
+  const filterCount =
+    (filters.dateRange !== "All Time" ? 1 : 0) +
+    filters.transactionType.length +
+    filters.transactionStatus.length;
+
+  const dateRangeLabel =
+    filters.dateRange === "All Time"
+      ? "all time"
+      : filters.dateRange.toLowerCase();
+
+  const filteredTransactions =
+    transactions?.filter((t: Transaction) => {
+      // Filter by Date Range
+      if (filters.startDate && filters.endDate) {
+        const transactionDate = new Date(t.date);
+        const start = new Date(filters.startDate);
+        const end = new Date(filters.endDate);
+        // Set end date to end of day
+        end.setHours(23, 59, 59, 999);
+
+        if (transactionDate < start || transactionDate > end) {
+          return false;
+        }
+      }
+
+      // Filter by Transaction Type
+      if (filters.transactionType.length > 0) {
+        const type = t.type || "";
+        const metadataType = t.metadata?.type || "";
+        // Map UI types to API types if necessary, or just check if any selected type matches
+        // This is a simple includes check, might need mapping depending on API data
+        const matchesType = filters.transactionType.some(
+          (selectedType) =>
+            type.toLowerCase().includes(selectedType.toLowerCase()) ||
+            metadataType.toLowerCase().includes(selectedType.toLowerCase())
+        );
+        // For "Withdrawals", the API type is "withdrawal"
+        if (
+          filters.transactionType.includes("Withdrawals") &&
+          type === "withdrawal"
+        )
+          return true;
+        if (!matchesType && !filters.transactionType.includes("Withdrawals"))
+          return false;
+      }
+
+      // Filter by Transaction Status
+      if (filters.transactionStatus.length > 0) {
+        if (!filters.transactionStatus.includes(t.status)) {
+          return false;
+        }
+      }
+
+      return true;
+    }) || [];
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
+    <div className="space-y-12">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
+        {/* Main Column */}
+        <div className="lg:col-span-2 space-y-8">
+          <WalletCard balance={wallet?.balance} />
+          <RevenueChart
+            data={filteredTransactions?.map((t: Transaction) => ({
+              date: format(new Date(t.date), "MMM dd, yyyy"),
+              value: t.amount,
+            }))}
+          />
+        </div>
+
+        {/* Side Column */}
+        <div className="lg:col-span-1">
+          <SideStats
+            ledgerBalance={wallet?.ledger_balance}
+            totalPayout={wallet?.total_payout}
+            totalRevenue={wallet?.total_revenue}
+            pendingPayout={wallet?.pending_payout}
+          />
+        </div>
+      </div>
+
+      <div className="space-y-6">
+        <TransactionsList
+          transactions={filteredTransactions}
+          isLoading={isTransactionsLoading}
+          onFilterClick={() => setIsFilterOpen(true)}
+          filterCount={filterCount}
+          dateRangeLabel={dateRangeLabel}
         />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+      </div>
+
+      <FilterModal
+        isOpen={isFilterOpen}
+        onClose={() => setIsFilterOpen(false)}
+        currentFilters={filters}
+        onApply={setFilters}
+      />
     </div>
   );
 }
