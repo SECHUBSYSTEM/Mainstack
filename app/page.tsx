@@ -38,8 +38,8 @@ export default function Home() {
       if (filters.startDate && filters.endDate) {
         const transactionDate = new Date(t.date);
         const start = new Date(filters.startDate);
+        start.setHours(0, 0, 0, 0);
         const end = new Date(filters.endDate);
-        // Set end date to end of day
         end.setHours(23, 59, 59, 999);
 
         if (transactionDate < start || transactionDate > end) {
@@ -51,21 +51,29 @@ export default function Home() {
       if (filters.transactionType.length > 0) {
         const type = t.type || "";
         const metadataType = t.metadata?.type || "";
-        // Map UI types to API types if necessary, or just check if any selected type matches
-        // This is a simple includes check, might need mapping depending on API data
-        const matchesType = filters.transactionType.some(
-          (selectedType) =>
-            type.toLowerCase().includes(selectedType.toLowerCase()) ||
-            metadataType.toLowerCase().includes(selectedType.toLowerCase())
-        );
-        // For "Withdrawals", the API type is "withdrawal"
-        if (
-          filters.transactionType.includes("Withdrawals") &&
-          type === "withdrawal"
-        )
-          return true;
-        if (!matchesType && !filters.transactionType.includes("Withdrawals"))
-          return false;
+
+        const matches = filters.transactionType.some((selectedType) => {
+          switch (selectedType) {
+            case "Store Transactions":
+              return (
+                metadataType === "digital_product" || metadataType === "webinar"
+              );
+            case "Get Tipped":
+              return metadataType === "coffee";
+            case "Withdrawals":
+              return type === "withdrawal";
+            case "Chargebacks":
+              return type === "chargeback";
+            case "Cashbacks":
+              return type === "cashback";
+            case "Refer & Earn":
+              return type === "referral";
+            default:
+              return false;
+          }
+        });
+
+        if (!matches) return false;
       }
 
       // Filter by Transaction Status
@@ -85,10 +93,27 @@ export default function Home() {
         <div className="lg:col-span-2 space-y-8">
           <WalletCard balance={wallet?.balance} />
           <RevenueChart
-            data={filteredTransactions?.map((t: Transaction) => ({
-              date: format(new Date(t.date), "MMM dd, yyyy"),
-              value: t.amount,
-            }))}
+            data={
+              filteredTransactions.length > 0
+                ? filteredTransactions.map((t: Transaction) => ({
+                    date: format(new Date(t.date), "MMM dd, yyyy"),
+                    value: t.amount,
+                  }))
+                : [
+                    {
+                      date: filters.startDate
+                        ? format(new Date(filters.startDate), "MMM dd, yyyy")
+                        : format(new Date(), "MMM dd, yyyy"),
+                      value: 0,
+                    },
+                    {
+                      date: filters.endDate
+                        ? format(new Date(filters.endDate), "MMM dd, yyyy")
+                        : format(new Date(), "MMM dd, yyyy"),
+                      value: 0,
+                    },
+                  ]
+            }
           />
         </div>
 
@@ -114,6 +139,7 @@ export default function Home() {
       </div>
 
       <FilterModal
+        key={isFilterOpen ? "open" : "closed"}
         isOpen={isFilterOpen}
         onClose={() => setIsFilterOpen(false)}
         currentFilters={filters}
