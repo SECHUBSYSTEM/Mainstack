@@ -59,7 +59,7 @@ const sidebarItems = [
         </defs>
       </svg>
     ),
-    label: "Link",
+    label: "Link in Bio",
   },
   {
     icon: (
@@ -115,7 +115,7 @@ const sidebarItems = [
         </defs>
       </svg>
     ),
-    label: "File",
+    label: "Store",
   },
   {
     icon: (
@@ -171,7 +171,7 @@ const sidebarItems = [
         </defs>
       </svg>
     ),
-    label: "Users",
+    label: "Media Kit",
   },
   {
     icon: (
@@ -227,7 +227,7 @@ const sidebarItems = [
         </defs>
       </svg>
     ),
-    label: "Box",
+    label: "Invoicing",
   },
 ];
 
@@ -238,6 +238,8 @@ export function Sidebar() {
         return (
           <button
             key={index}
+            title={item.label}
+            aria-label={item.label}
             className="p-2 cursor-pointer text-gray-400 hover:text-black transition-colors hover:bg-gray-50 rounded-full group">
             <div className="grayscale group-hover:grayscale-0 transition-all duration-300">
               {item.icon}
